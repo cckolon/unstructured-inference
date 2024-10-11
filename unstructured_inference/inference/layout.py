@@ -8,11 +8,11 @@ from typing import Any, BinaryIO, Collection, List, Optional, Union, cast
 import numpy as np
 import pdf2image
 from PIL import Image, ImageSequence
-
-from unstructured_inference.inference.elements import (
-    TextRegion,
+from unstructured_inference.inference.elements import TextRegion
+from unstructured_inference.inference.layoutelement import (
+    LayoutElement,
+    LayoutElements,
 )
-from unstructured_inference.inference.layoutelement import LayoutElement, LayoutElements
 from unstructured_inference.logger import logger
 from unstructured_inference.models.base import get_model
 from unstructured_inference.models.unstructuredmodel import (
@@ -68,7 +68,9 @@ class DocumentLayout:
             pages: List[PageLayout] = []
             if fixed_layouts is None:
                 fixed_layouts = [None for _ in range(0, number_of_pages)]
+            number_of_files = len(image_paths)
             for i, (image_path, fixed_layout) in enumerate(zip(image_paths, fixed_layouts)):
+                logger.info(f"Running inference on file {i + 1} of {number_of_files}")
                 # NOTE(robinson) - In the future, maybe we detect the page number and default
                 # to the index if it is not detected
                 with Image.open(image_path) as image:
@@ -107,7 +109,9 @@ class DocumentLayout:
             else:
                 raise FileNotFoundError(f'File "{filename}" not found!') from e
         pages = []
+        number_of_images = len(images)
         for i, image in enumerate(images):  # type: ignore
+            logger.info(f"Running inference on image {i + 1} of {number_of_images}")
             page = PageLayout.from_image(
                 image,
                 image_path=filename,
@@ -396,18 +400,29 @@ def convert_pdf_to_image(
     if path_only and not output_folder:
         raise ValueError("output_folder must be specified if path_only is true")
 
+    thread_count = os.cpu_count()
+    if thread_count is None:
+        thread_count = 1
+    else:
+        thread_count = max(thread_count - 1, 1)
+
+    logger.info(f"Converting PDF to images with dpi={dpi} and {thread_count} threads")
+
     if output_folder is not None:
         images = pdf2image.convert_from_path(
             filename,
             dpi=dpi,
             output_folder=output_folder,
             paths_only=path_only,
+            thread_count=thread_count,
         )
     else:
         images = pdf2image.convert_from_path(
             filename,
             dpi=dpi,
             paths_only=path_only,
+            thread_count=thread_count,
         )
+    logger.info(f"Converted PDF to {len(images)} images")
 
     return images
