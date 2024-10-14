@@ -7,7 +7,6 @@ import numpy as np
 from layoutparser.elements.layout import TextBlock
 from pandas import DataFrame
 from scipy.sparse.csgraph import connected_components
-
 from unstructured_inference.config import inference_config
 from unstructured_inference.constants import (
     CHIPPER_VERSIONS,
